@@ -1,0 +1,32 @@
+def commitMsg = params.commit_message
+DEPLOY_ENV_DEV = "dev"
+DEPLOY_ENV_PRE = "preprod"
+DEPLOY_ENV_PROD = "prod"
+
+pipeline {
+    agent any
+
+    environment {
+        DEVOPS_PROJECT = 'DW_D'
+        JAVA_HOME = '/usr/lib/jvm/zulu-11-amd64/'
+        DOCKER_REPO = 'kblab'
+        PROJECT_NAME='atlas'
+        MS_NAME = 'ms-credit'
+        DOCKER_REPO_PASSWORD = credentials('docker_api_token')
+        KUBEPROD_CREDS = credentials('kubeprod_config')
+        KUBEPRE_CREDS = credentials('kubepreprod_config')
+        KUBEDEV_CREDS = credentials('kubedevelop_config')
+        KUBE_CREDS = ''
+        JENKINS_API_CREDS=credentials('jenkins_api_creds')
+    }
+     
+    stages {
+        stage('Send to the Job'){
+            steps {
+                sh """
+                   curl -s -k -X POST -L --user $JENKINS_API_CREDS "https://jenkins.kblab.local/job/Atlas/job/Test-Slack/buildWithParameters?buildUrl=$BUILD_URL"
+                   """
+            }
+        }
+    }
+}
