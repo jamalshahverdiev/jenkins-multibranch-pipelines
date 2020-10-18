@@ -1,0 +1,30 @@
+def buildUrl = params.buildUrl
+DEPLOY_ENV_DEV = "dev"
+DEPLOY_ENV_PRE = "preprod"
+DEPLOY_ENV_PROD = "prod"
+
+pipeline {
+    agent any
+
+    environment {
+        DEVOPS_PROJECT = 'DW_D'
+        JAVA_HOME = '/usr/lib/jvm/zulu-11-amd64/'
+        DOCKER_REPO = 'kblab'
+        PROJECT_NAME='atlas'
+        MS_NAME = 'ms-credit'
+        DOCKER_REPO_PASSWORD = credentials('docker_api_token')
+        KUBEPROD_CREDS = credentials('kubeprod_config')
+        KUBEPRE_CREDS = credentials('kubepreprod_config')
+        KUBEDEV_CREDS = credentials('kubedevelop_config')
+        KUBE_CREDS = ''
+    }
+     
+    stages {
+        stage('Slack it'){
+            steps {
+                slackSend channel: '#jenkins_trigger', message: "Rolled back Jenkins job: $buildUrl"
+                echo "Build Url: ${buildUrl}"
+            }
+        }
+    }
+}
