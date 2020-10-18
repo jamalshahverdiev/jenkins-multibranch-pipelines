@@ -1,0 +1,148 @@
+@Library('shared-libs-microservices')_
+
+def atlasMsMethods = new AtlasMethods(this)
+def globalMethods = new GlobalMethods(this)
+def TAG = 'latest'
+def currentDeployedTAG = ''
+def replaceJksScheme =  BUILD_URL.replace("http", "https")
+
+DEPLOY_ENV_DEV = "dev"
+DEPLOY_ENV_PRE = "preprod"
+DEPLOY_ENV_PROD = "prod"
+
+pipeline {
+    agent any
+
+    environment {
+        DEVOPS_PROJECT = 'DW_D'
+        JAVA_HOME = '/usr/lib/jvm/zulu-11-amd64/'
+        DOCKER_REPO = 'kblab'
+        PROJECT_NAME='atlas'
+        MS_NAME = 'ms-teller'
+        DOCKER_REPO_PASSWORD = credentials('docker_api_token')
+        KUBEPROD_CREDS = credentials('kubeprod_config')
+        KUBEPRE_CREDS = credentials('kubepreprod_config')
+        KUBEDEV_CREDS = credentials('kubedevelop_config')
+        JENKINS_API_CREDS = credentials('jenkins_api_creds')
+        KUBE_CREDS = ''
+        CURRENT_DEPLOY_ENV = atlasMsMethods.getDeployEnv "${GIT_BRANCH}"
+        //TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
+        TAG = "v0.0.1"
+        IS_MERGE_REQUEST = atlasMsMethods.isMergeRequest()
+    }
+     
+    stages {
+    /*
+        stage('Build & Tests') {
+            steps {
+                script {
+                    currentBuild.displayName = "${GIT_BRANCH}-${BUILD_NUMBER}"
+                    echo 'Building..'
+                    sh "./gradlew build -Pjenkins -Pprofiles=${CURRENT_DEPLOY_ENV} -Djavax.net.ssl.trustStore='/usr/lib/jvm/zulu-11-amd64/lib/security/cacerts' -Djavax.net.ssl.trustStorePassword=changeit --no-daemon "
+                    if (CURRENT_DEPLOY_ENV != DEPLOY_ENV_PROD) {
+                        echo 'Start unit testing with gradle...'
+                        sh "./gradlew test -Pjenkins -Pprofiles=${CURRENT_DEPLOY_ENV}"
+                    }
+                }
+            }
+        }
+
+        stage('SonarQube analysis') {
+            when {
+                expression { return CURRENT_DEPLOY_ENV != DEPLOY_ENV_PROD }
+            }
+
+            steps {
+                withSonarQubeEnv('Sonarqube') {
+                    sh './gradlew --info sonarqube -Dsonar.host.url=https://sonarqube.kblab.local -Dsonar.projectKey=$MS_NAME -Dsonar.projectName=$MS_NAME -Dsonar.java.binaries=./ --debug --stacktrace'
+                }
+                withEnv(["JAVA_OPTS=-Djavax.net.ssl.trustStore=/usr/lib/jvm/zulu-11-amd64/lib/security/cacerts -Djavax.net.ssl.trustStorePassword=changeit -Dhttps.proxyPort=8081"]) {
+                    script { globalMethods.waitSonarQube 3, 10 }
+                }
+            }
+        }
+
+        stage('Docker Build & Test') {
+            stages{
+                stage("Docker Build") {
+                   steps {
+                       script {
+                           atlasMsMethods.dockerLogin DOCKER_REPO_PASSWORD
+                           TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
+                       }
+                       echo "Building docker container with tag: $TAG"
+                       sh "docker build --rm -t nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG ."
+                   }
+                }
+                stage('Delete docker image') {
+                    when {
+                       anyOf {
+                            expression { return CURRENT_DEPLOY_ENV == DEPLOY_ENV_DEV && IS_MERGE_REQUEST == "no" }
+                            expression { return CURRENT_DEPLOY_ENV == DEPLOY_ENV_PRE && IS_MERGE_REQUEST == "no" }
+                       }
+                    }
+                    steps {
+                        echo "Deleting docker image"
+                        sh "docker rmi nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        echo 'Docker images deleted successful'
+                    }
+                }
+                stage('Docker push images') {
+                    when {
+                       anyOf {
+                            expression { return CURRENT_DEPLOY_ENV == DEPLOY_ENV_DEV && IS_MERGE_REQUEST == "yes" }
+                            expression { return CURRENT_DEPLOY_ENV == DEPLOY_ENV_PRE && IS_MERGE_REQUEST == "yes" }
+                            expression { return CURRENT_DEPLOY_ENV == DEPLOY_ENV_PROD }
+                       }
+                    }
+                    steps {
+                        echo "Pushing docker images"
+                        sh "docker push nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker rmi nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        echo "Docker images pushed successful"
+                    }
+                }
+            }
+        }
+*/
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                
+                    if (atlasMsMethods.isNotDeploymentRequest()) {
+                        currentBuild.getRawBuild().getExecutor().interrupt(Result.SUCCESS)
+                        sleep(1)
+                        return
+                    }
+                
+                    //don't touch it
+                    if (CURRENT_DEPLOY_ENV == DEPLOY_ENV_PROD) {
+                        KUBE_CREDS = "${KUBEPROD_CREDS}"
+                    } else if (CURRENT_DEPLOY_ENV == DEPLOY_ENV_PRE ) {
+                        KUBE_CREDS = "${KUBEPRE_CREDS}"
+                    } else if (CURRENT_DEPLOY_ENV == DEPLOY_ENV_DEV ) {
+                        KUBE_CREDS = "${KUBEDEV_CREDS}"
+                    }
+                   
+                    //TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
+                    //TAG = "v0.0.2"
+                    globalMethods.compareTagsAndNotifyJiraSlack("https://jenkins.kblab.local/job", replaceJksScheme, "Jira_New")
+                    //globalMethods.postToSlack(JENKINS_API_CREDS, "https://jenkins.kblab.local/job", PROJECT_NAME, "Test-Slack", replaceJksScheme)
+
+                    //we should load helm to workspace if IS_MERGE_REQUEST equals to 'yes'
+                    atlasMsMethods.helmMasterToWorkspace "jenkinsbitbucketuser", "https://bitbucket.kapitalbank.az/scm/dw_d/helm3.git"
+                }
+/*
+                echo "Preparing config ${MS_NAME} to ${CURRENT_DEPLOY_ENV}.kblab.local..."
+                sh """
+                    sed -i "s/ms_name/${MS_NAME}/g" Chart.yaml; helm upgrade --install --force ${MS_NAME} . -f ${CURRENT_DEPLOY_ENV}.yaml --set image.image_vers=${TAG},ns_name=${PROJECT_NAME},ms_names.name=${MS_NAME},deploy_env=${CURRENT_DEPLOY_ENV} --kubeconfig $KUBE_CREDS --namespace ${PROJECT_NAME}
+                   """
+                script { globalMethods.waitMsKubernetes '5' }
+                */
+
+            }
+        }
+    }
+    post { always { cleanWs() } }
+}
