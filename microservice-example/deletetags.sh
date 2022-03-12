@@ -12,7 +12,7 @@
 #          BUGS:  ---
 #         NOTES:  ---
 #        AUTHOR:  Jamal Shahverdiev (), jamal.shahverdiev@gmail.com
-#       COMPANY:  KapitalBank LLC
+#       COMPANY:  Company LLC
 #       VERSION:  1.0
 #       CREATED:  05/12/2020 04:16:01 PM +04
 #      REVISION:  ---

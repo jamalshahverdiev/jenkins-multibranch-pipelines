@@ -14,11 +14,11 @@ pipeline {
     agent any
 
     environment {
-        DEVOPS_PROJECT = 'DW_D'
+        DEVOPS_PROJECT = 'DevopsPrj'
         JAVA_HOME = '/usr/lib/jvm/zulu-11-amd64/'
-        DOCKER_REPO = 'kblab'
-        PROJECT_NAME='atlas'
-        MS_NAME = 'ms-teller'
+        DOCKER_REPO = 'docker_repo_name'
+        PROJECT_NAME='project'
+        MS_NAME = 'ms-name'
         DOCKER_REPO_PASSWORD = credentials('docker_api_token')
         KUBEPROD_CREDS = credentials('kubeprod_config')
         KUBEPRE_CREDS = credentials('kubepreprod_config')
@@ -32,7 +32,6 @@ pipeline {
     }
      
     stages {
-    /*
         stage('Build & Tests') {
             steps {
                 script {
@@ -54,7 +53,7 @@ pipeline {
 
             steps {
                 withSonarQubeEnv('Sonarqube') {
-                    sh './gradlew --info sonarqube -Dsonar.host.url=https://sonarqube.kblab.local -Dsonar.projectKey=$MS_NAME -Dsonar.projectName=$MS_NAME -Dsonar.java.binaries=./ --debug --stacktrace'
+                    sh './gradlew --info sonarqube -Dsonar.host.url=https://sonarqube.domain.name -Dsonar.projectKey=$MS_NAME -Dsonar.projectName=$MS_NAME -Dsonar.java.binaries=./ --debug --stacktrace'
                 }
                 withEnv(["JAVA_OPTS=-Djavax.net.ssl.trustStore=/usr/lib/jvm/zulu-11-amd64/lib/security/cacerts -Djavax.net.ssl.trustStorePassword=changeit -Dhttps.proxyPort=8081"]) {
                     script { globalMethods.waitSonarQube 3, 10 }
@@ -71,7 +70,7 @@ pipeline {
                            TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
                        }
                        echo "Building docker container with tag: $TAG"
-                       sh "docker build --rm -t nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG ."
+                       sh "docker build --rm -t docker.registry.domain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG ."
                    }
                 }
                 stage('Delete docker image') {
@@ -83,7 +82,7 @@ pipeline {
                     }
                     steps {
                         echo "Deleting docker image"
-                        sh "docker rmi nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker rmi docker.registry.domain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
                         echo 'Docker images deleted successful'
                     }
                 }
@@ -97,15 +96,13 @@ pipeline {
                     }
                     steps {
                         echo "Pushing docker images"
-                        sh "docker push nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
-                        sh "docker rmi nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker push docker.registry.domain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker rmi docker.registry.domain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
                         echo "Docker images pushed successful"
                     }
                 }
             }
         }
-*/
-
         stage('Deploy to Kubernetes') {
             steps {
                 script {
@@ -125,22 +122,20 @@ pipeline {
                         KUBE_CREDS = "${KUBEDEV_CREDS}"
                     }
                    
-                    //TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
-                    //TAG = "v0.0.2"
-                    globalMethods.compareTagsAndNotifyJiraSlack("https://jenkins.kblab.local/job", replaceJksScheme, "Jira_New")
-                    //globalMethods.postToSlack(JENKINS_API_CREDS, "https://jenkins.kblab.local/job", PROJECT_NAME, "Test-Slack", replaceJksScheme)
+                    TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
+                    globalMethods.compareTagsAndNotifyJiraSlack("https://jenkins.domain.name/job", replaceJksScheme, "Jira_New")
+                    // If we want to use only Slack then uncomment next line and comment previous
+                    //globalMethods.postToSlack(JENKINS_API_CREDS, "https://jenkins.domain.name/job", PROJECT_NAME, "Test-Slack", replaceJksScheme)
 
                     //we should load helm to workspace if IS_MERGE_REQUEST equals to 'yes'
-                    atlasMsMethods.helmMasterToWorkspace "jenkinsbitbucketuser", "https://bitbucket.kapitalbank.az/scm/dw_d/helm3.git"
+                    atlasMsMethods.helmMasterToWorkspace "jenkinsbitbucketuser", "https://source.code.domain.name/scm/dw_d/helm3.git"
                 }
-/*
-                echo "Preparing config ${MS_NAME} to ${CURRENT_DEPLOY_ENV}.kblab.local..."
+
+                echo "Preparing config ${MS_NAME} to ${CURRENT_DEPLOY_ENV}.domain.name..."
                 sh """
                     sed -i "s/ms_name/${MS_NAME}/g" Chart.yaml; helm upgrade --install --force ${MS_NAME} . -f ${CURRENT_DEPLOY_ENV}.yaml --set image.image_vers=${TAG},ns_name=${PROJECT_NAME},ms_names.name=${MS_NAME},deploy_env=${CURRENT_DEPLOY_ENV} --kubeconfig $KUBE_CREDS --namespace ${PROJECT_NAME}
                    """
                 script { globalMethods.waitMsKubernetes '5' }
-                */
-
             }
         }
     }

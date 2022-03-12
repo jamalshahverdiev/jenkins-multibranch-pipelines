@@ -12,11 +12,11 @@ pipeline {
     agent { label 'master' }
 
     environment {
-        DEVOPS_PROJECT = 'ATLAS'
+        DEVOPS_PROJECT = 'DevOpsPrj'
         JAVA_HOME = '/usr/lib/jvm/zulu-11-amd64/'
-        DOCKER_REPO = 'kblab'
-        PROJECT_NAME='atlas-platform'
-        MS_NAME = 'ms-transfer'
+        DOCKER_REPO = 'docker_repo_name'
+        PROJECT_NAME='project_name'
+        MS_NAME = 'ms-name'
         scannerHome = tool 'SonarQube Scanner'
         DOCKER_REPO_PASSWORD = credentials('docker_api_token')
         KUBEPROD_CREDS = credentials('kube_taxrefund_prod_config')
@@ -62,7 +62,7 @@ pipeline {
                            TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
                        }
                        echo "Building docker container with tag: $TAG"
-                       sh "docker build --rm -t nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG ."
+                       sh "docker build --rm -t docker.registry.docmain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG ."
                    }
                 }
                 stage('Delete docker image') {
@@ -74,7 +74,7 @@ pipeline {
                     }
                     steps {
                         echo "Deleting docker image"
-                        sh "docker rmi nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker rmi docker.registry.docmain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
                         echo 'Docker images deleted successful'
                     }
                 }
@@ -88,8 +88,8 @@ pipeline {
                     }
                     steps {
                         echo "Pushing docker images"
-                        sh "docker push nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
-                        sh "docker rmi nexus.kblab.local:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker push docker.registry.docmain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
+                        sh "docker rmi docker.registry.docmain:8083/v1/repositories/$DOCKER_REPO/$PROJECT_NAME/$MS_NAME:$TAG"
                         echo "Docker images pushed successful"
                     }
                 }
@@ -115,7 +115,7 @@ pipeline {
                     }
 
                     //we should load helm to workspace if IS_MERGE_REQUEST equals to 'yes'
-                    atlasMsMethods.helmMasterToWorkspace "5563c8eb-e93d-42ee-8130-b5b534dfc531", "https://bitbucket.kapitalbank.az/scm/dw_d/helm3.git"
+                    atlasMsMethods.helmMasterToWorkspace "secret_id_of_jenkins", "https://helm.repo.domain.name/scm/dw_d/helm3.git"
 
                     TAG = atlasMsMethods.generateTag CURRENT_DEPLOY_ENV
                 }

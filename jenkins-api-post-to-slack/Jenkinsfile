@@ -9,9 +9,9 @@ pipeline {
     environment {
         DEVOPS_PROJECT = 'DW_D'
         JAVA_HOME = '/usr/lib/jvm/zulu-11-amd64/'
-        DOCKER_REPO = 'kblab'
-        PROJECT_NAME='atlas'
-        MS_NAME = 'ms-credit'
+        DOCKER_REPO = 'docker_repo_name'
+        PROJECT_NAME='project'
+        MS_NAME = 'ms-name'
         DOCKER_REPO_PASSWORD = credentials('docker_api_token')
         KUBEPROD_CREDS = credentials('kubeprod_config')
         KUBEPRE_CREDS = credentials('kubepreprod_config')
@@ -24,7 +24,7 @@ pipeline {
         stage('Send to the Job'){
             steps {
                 sh """
-                   curl -s -k -X POST -L --user $JENKINS_API_CREDS "https://jenkins.kblab.local/job/Atlas/job/Test-Slack/buildWithParameters?buildUrl=$BUILD_URL"
+                   curl -s -k -X POST -L --user $JENKINS_API_CREDS "https://jenkins.domain.name/job/ProjectName/job/Test-Slack/buildWithParameters?buildUrl=$BUILD_URL"
                    """
             }
         }
